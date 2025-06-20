@@ -1,6 +1,6 @@
 # 🔬 Comprehensive scRNA-seq Analysis in R using Seurat
 
-This repository is an educational resource for researchers and students to learn **single-cell RNA-seq (scRNA-seq) analysis** using the **Seurat** package in R. It covers the entire standard pipeline and advanced topics, supporting multiple input formats including `.h5`, `.mtx`, and `.csv`.
+This repository is an educational resource for researchers and students to learn **single-cell RNA-seq (scRNA-seq) analysis** using the **Seurat** package in R. It covers the entire standard pipeline and advanced topics, supporting  input formats including `.h5` and `.mtx`.
 
 ---
 
@@ -21,7 +21,6 @@ This repository is an educational resource for researchers and students to learn
 ✅ Pseudotime analysis (e.g., with Monocle3 or Slingshot)  
 ✅ Cell–cell communication analysis (e.g., with CellChat)  
 ✅ Doublet detection and removal using DoubletFinder  
-✅ Integration of multiple datasets  
 ✅ Clean and customizable plots for publications  
 
 ---

@@ -1,33 +1,36 @@
 # data : https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE272922
-# load libraries
+# ===============================
+# 📦 Load Required Libraries
+# ===============================
 library(Seurat)
 library(ggplot2)
 library(tidyverse)
 library(gridExtra)
 library(patchwork)
-#determine data location
-loc = list.dirs(path = "../Desktop/Rprojects/scRNA-seq/project/data/", full.names = FALSE,recursive = FALSE)
-base_path = "../Desktop/Rprojects/scRNA-seq/project/data/"
-#we have 4 folders for for sampples so we will
-#creat a loop to do all steps for each folder at one time
 
+# ===============================
+# 📁 Set Paths and Sample Info
+# ===============================
+base_path <- "../Desktop/Rprojects/scRNA-seq/project/data/"
+sample_dirs <- list.dirs(path = base_path, full.names = FALSE, recursive = FALSE)
 
- for (i in loc){
-   
-   sample_name <- i
-   
-   cts = ReadMtx(mtx = paste0(base_path,i,"/matrix.mtx"),
-           features = paste0(base_path,i,"/features.tsv"),
-           cells =paste0(base_path,i,"/barcodes.tsv"))
-   
-   # create seurat objects
-   assign(sample_name, CreateSeuratObject(counts = cts))
-   
+# ===============================
+# 🔁 Read Each Sample and Create Seurat Object
+# ===============================
+for (sample in sample_dirs) {
+  counts <- ReadMtx(
+    mtx = paste0(base_path, sample, "/matrix.mtx"),
+    features = paste0(base_path, sample, "/features.tsv"),
+    cells = paste0(base_path, sample, "/barcodes.tsv")
+  )
   
- }  
+  seurat_obj <- CreateSeuratObject(counts = counts, project = sample)
+  assign(sample, seurat_obj)
+}
 
-
-# merin and not interation so we can berform the standard work flow
+# ===============================
+# 🔗 Merge Samples (Without Integration)
+# ===============================
 merged_seurat <- merge(
   x = control,
   y = c(phenoformin, polyIC, combination),
@@ -35,69 +38,67 @@ merged_seurat <- merge(
   project = "CII"
 )
 
-#qc
-view(merged_seurat@meta.data)
+# ===============================
+# 🧬 Add Sample Type Metadata
+# ===============================
+merged_seurat$sample <- rownames(merged_seurat@meta.data)
+merged_seurat@meta.data <- separate(
+  merged_seurat@meta.data,
+  col = "sample",
+  into = c("Type", "Barcode"),
+  sep = "_"
+)
 
-merged_seurat@meta.data$sample = row.names(merged_seurat@meta.data)
-merged_seurat@meta.data = separate(merged_seurat@meta.data, col = 'sample', into = c('Type', 'Barcode'), 
-                                   sep = '_')
-#to ggmake sure that our data present
-unique(merged_seurat@meta.data$Type)
+# Confirm sample types
+unique(merged_seurat$Type)
 
+# ===============================
+# 🔍 Quality Control
+# ===============================
+# Calculate % mitochondrial gene expression
+merged_seurat$mitoPercent <- PercentageFeatureSet(merged_seurat, pattern = "^MT-")
 
-# calculate mitochondrial percentage
-merged_seurat$mitoPercent <- PercentageFeatureSet(merged_seurat, pattern='^MT-')
-unique(merged_seurat@meta.data$mitoPercent)
+# Visualize QC metrics
+VlnPlot(merged_seurat, features = c("nFeature_RNA", "nCount_RNA", "mitoPercent"), ncol = 3)
 
-# Visualize quality control metrics
-VlnPlot(merged_seurat, features = c("nFeature_RNA", "nCount_RNA", "mitoPercent"), ncol = 3) 
+# Feature scatter for count vs. features
+FeatureScatter(merged_seurat, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
+  geom_smooth(method = "lm")
 
-# high mitochondrial content cells had already been removed prior to analysis
+# ===============================
+# 🧼 Filtering Low-Quality Cells
+# ===============================
+merged_seurat_filtered <- subset(
+  merged_seurat,
+  subset = nCount_RNA > 800 & nFeature_RNA > 500 & mitoPercent < 10
+)
 
-# A good-quality dataset should follow a straight line
- FeatureScatter(merged_seurat , feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
-  geom_smooth(method = 'lm')
-
-#filtering
-merged_seurat_filtered <- subset(merged_seurat, subset = nCount_RNA > 800 &
-                                   nFeature_RNA > 500 &
-                                   mitoPercent < 10)
-# needs droplet finders 
+# Optional: Save filtered object for inspection
 merged_seurat_filtered
 
-merged_seurat
+# Feature scatter post-filtering
+FeatureScatter(merged_seurat_filtered, feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
+  geom_smooth(method = "lm")
 
+# ===============================
+# 🧪 Standard Seurat Workflow (Before Integration)
+# ===============================
+merged_seurat_filtered <- NormalizeData(merged_seurat_filtered)
+merged_seurat_filtered <- FindVariableFeatures(merged_seurat_filtered)
+merged_seurat_filtered <- ScaleData(merged_seurat_filtered)
+merged_seurat_filtered <- RunPCA(merged_seurat_filtered)
 
-
- FeatureScatter(merged_seurat_filtered , feature1 = "nCount_RNA", feature2 = "nFeature_RNA") +
-  geom_smooth(method = 'lm')
-
-#in order to perform interation we need to see for batch effect in a low dimention 
-#so we need to perform the standard work flow
-
-
-merged_seurat_filtered <- NormalizeData(object = merged_seurat_filtered)
-merged_seurat_filtered <- FindVariableFeatures(object = merged_seurat_filtered)
-merged_seurat_filtered <- ScaleData(object = merged_seurat_filtered)
-merged_seurat_filtered <- RunPCA(object = merged_seurat_filtered)
-
-# Visualize PCA results
+# PCA inspection
 print(merged_seurat_filtered[["pca"]], dims = 1:5, nfeatures = 5)
 DimHeatmap(merged_seurat_filtered, dims = 1, cells = 500, balanced = TRUE)
-
 ElbowPlot(merged_seurat_filtered)
-merged_seurat_filtered <- FindNeighbors(object = merged_seurat_filtered, dims = 1:20)
-merged_seurat_filtered <- FindClusters(object = merged_seurat_filtered)
-merged_seurat_filtered <- RunUMAP(object = merged_seurat_filtered, dims = 1:20)
 
- p1 <- DimPlot(merged_seurat_filtered, reduction = 'umap', group.by = 'Type')
+# ===============================
+# 🔗 Clustering & UMAP
+# ===============================
+merged_seurat_filtered <- FindNeighbors(merged_seurat_filtered, dims = 1:20)
+merged_seurat_filtered <- FindClusters(merged_seurat_filtered)
+merged_seurat_filtered <- RunUMAP(merged_seurat_filtered, dims = 1:20)
 
-
-
-
- 
- 
- 
- 
- 
- 
+# UMAP colored by sample type
+DimPlot(merged_seurat_filtered, reduction = "umap", group.by = "Type")

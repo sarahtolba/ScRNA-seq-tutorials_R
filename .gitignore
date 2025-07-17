@@ -1,0 +1,45 @@
+# RStudio & R-related
+.Rhistory
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+
+# Seurat & serialized data
+*.rds
+*.RDS
+*.rda
+*.RDataTmp
+
+# Raw and intermediate scRNA-seq data
+*.h5
+*.mtx
+*.tsv
+*.csv
+*.txt
+*.loom
+
+# Compressed files
+*.gz
+*.zip
+*.tar
+*.tar.gz
+
+# Plots and figures
+*.png
+*.jpeg
+*.jpg
+*.pdf
+*.svg
+
+# Output directories
+output/
+results/
+figures/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Git log files
+*.log
